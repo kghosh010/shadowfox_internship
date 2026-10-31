@@ -8,15 +8,13 @@ from openpyxl.utils import get_column_letter
 
 WEIGHTS = {"CP":1, "GT":1, "C":3, "DC":-3, "ST":3, "RO":3, "MRO":-2, "DH":2}
 
-COLS = ["Match No.","Innings","Teams","Player Name","BallCount","Position","Pick","Throw","Runs","Overcount","Venue","Stadium"]
+cols = ["Match No.","Innings","Teams","Player Name","BallCount","Position","Pick","Throw","Runs","Overcount","Venue","Stadium"]
 
 PICK_NAMES = {"Y":"Clean Pick","N":"Fumble","C":"Catch",
               "DC":"Dropped Catch","S":"Stumping"}
 THROW_NAMES = {"Y":"Good Throw","N":"Bad Throw","DH":"Direct Hit","RO":"Run Out","MR":"Missed Run Out"}
 
-# 1.Data collection
-
-FIELDERS = [  # (name,position)
+FIELDERS = [
     ("Rilee Russouw","Short mid wicket"),("Phil Salt","Wicket keeper"),
     ("Yash Dhull","Covers"),("Axar Patel","Point"),
     ("Lalit Yadav","Cover point"),("Aman Khan","Long off"),
@@ -25,7 +23,6 @@ FIELDERS = [  # (name,position)
     ("David Warner","Deep square leg"),
 ]
 
-
 def build_demo(seed=2367, match="IPL2367",team="Delhi Capitals",
                venue="Delhi",stadium="Arun Jaitley Stadium"):
     rng = random.Random(seed)
@@ -33,7 +30,7 @@ def build_demo(seed=2367, match="IPL2367",team="Delhi Capitals",
     for over in range(1,21):
         for ball in range(1,7):
             ball_count = round((over - 1) + ball / 10,1)
-            row = dict(zip(COLS, [match,1,team,"",ball_count,"","","","",over,venue,stadium]))
+            row = dict(zip(cols, [match,1,team,"",ball_count,"","","","",over,venue,stadium]))
             r = rng.random()
             if r < 0.30:  
                 rows.append(row)
@@ -65,9 +62,7 @@ def build_demo(seed=2367, match="IPL2367",team="Delhi Capitals",
                 elif t < 0.70:
                     row["Throw"] = "MR"
             rows.append(row)
-    return pd.DataFrame(rows, columns=COLS)
-
-# 2.Analysis
+    return pd.DataFrame(rows, columns=cols)
 
 def score_players(df):
     d = df[df["Player Name"].astype(str).str.strip() != ""].copy()
@@ -102,36 +97,29 @@ def score_players(df):
 HDR_FILL = PatternFill("solid", fgColor="1F3864")
 HDR_FONT = Font(bold=True, color="FFFFFF")
 
-
 def style_header(ws, row, ncols):
     for c in range(1, ncols + 1):
         cell = ws.cell(row=row, column=c)
         cell.fill, cell.font = HDR_FILL, HDR_FONT
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-
 def autowidth(ws):
     for col in ws.columns:
         width = max(len(str(c.value)) if c.value is not None else 0 for c in col)
         ws.column_dimensions[get_column_letter(col[0].column)].width = min(max(width + 2, 10), 28)
 
-
 def write_workbook(df, players, path):
     wb = Workbook()
 
-    # Sheet 1:ball-by-ball data
-
     ws = wb.active
     ws.title = "Fielding Data"
-    ws.append(COLS)
+    ws.append(cols)
     for r in df.itertuples(index=False):
         ws.append(["" if pd.isna(v) else v for v in r])
-    style_header(ws, 1, len(COLS))
+    style_header(ws, 1, len(cols))
     ws.freeze_panes = "A2"
     autowidth(ws)
     last = ws.max_row
-
-    # Sheet 2:weights
 
     wsw = wb.create_sheet("Weights")
     wsw.append(["Action", "Weight"])
@@ -141,8 +129,6 @@ def write_workbook(df, players, path):
     style_header(wsw, 1, 2)
     autowidth(wsw)
     wrow = {k: i + 2 for i, k in enumerate(WEIGHTS)}  # weight cell rows
-
-    # Sheet 3:performance matrix (formulas -> updates when data is edited)
 
     wsm = wb.create_sheet("Performance Matrix")
     heads = ["Player Name", "Clean Picks (CP)", "Good Throws (GT)", "Catches (C)",
@@ -171,8 +157,6 @@ def write_workbook(df, players, path):
     wsm.freeze_panes = "B2"
     autowidth(wsm)
 
-    # Sheet 4:legend
-
     wsl = wb.create_sheet("Legend")
     legend = [["Pick code", "Meaning"]] + [[k, v] for k, v in PICK_NAMES.items()]
     legend += [[], ["Throw code", "Meaning"]] + [[k, v] for k, v in THROW_NAMES.items()]
@@ -185,7 +169,6 @@ def write_workbook(df, players, path):
 
     wb.save(path)
 
-
 def main():
     if len(sys.argv) > 1:
         df = pd.read_excel(sys.argv[1], header=None)
@@ -193,7 +176,7 @@ def main():
         hdr = df.index[df.eq("Match No.").any(axis=1)][0]
         df.columns = df.iloc[hdr]
         df = df.iloc[hdr + 1:]
-        df = df[[c for c in COLS if c in df.columns]].dropna(how="all")
+        df = df[[c for c in cols if c in df.columns]].dropna(how="all")
         df = df[df["Match No."].astype(str).str.startswith("IPL")] \
             if df["Match No."].astype(str).str.startswith("IPL").any() else df
     else:
@@ -204,7 +187,6 @@ def main():
     out = "fielding_analysis_output.xlsx"
     write_workbook(df, players, out)
     print(f"\nSaved -> {out}")
-
 
 if __name__ == "__main__":
     main()
